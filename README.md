@@ -1,16 +1,7 @@
-# sample5
+## 1.0.1
+android_alarm_manager_plusとoptimize_batteryを入れてDoze対策。</br>
+失敗したけど。
 
-A new Flutter project.
-
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+android_alarm_manager_plusをalarmClock: trueで動かすとアプリがKillされる。</br>
+設定された関数は呼び出しされているのだろう。</br>
+GUI側がKillされ処理がされていなかったので、対策としては失敗。
