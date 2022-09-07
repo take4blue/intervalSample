@@ -8,7 +8,6 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:io' show Platform;
 import 'dart:isolate';
-import 'dart:math';
 import 'dart:ui';
 
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
@@ -68,17 +67,38 @@ class _AlarmHomePageState extends State<_AlarmHomePage> {
   final _list = <String>[];
   final formatter = DateFormat('yyyy-MM-dd hh:mm:ss');
   var _prev = DateTime.now();
+  bool _doAlarmManager = false;
 
-  static FutureOr<void> _oneShot() async {
-    await AndroidAlarmManager.oneShot(
-      const Duration(seconds: 20),
-      Random().nextInt(pow(2, 31) as int),
-      callback,
-      alarmClock: true,
-      exact: true,
-      wakeup: true,
-      allowWhileIdle: true,
-    );
+  static int kAlarmId = 0;
+
+  Timer? _timer;
+
+  FutureOr<void> _oneShot() async {
+    if (_doAlarmManager) {
+      await AndroidAlarmManager.oneShot(
+        const Duration(seconds: 20),
+        kAlarmId,
+        callback,
+        exact: true,
+        wakeup: true,
+        allowWhileIdle: true,
+      );
+    } else {
+      _timer = Timer(const Duration(seconds: 20), _awake);
+    }
+  }
+
+  FutureOr<void> _restart(bool doAlarmManager) async {
+    if (_doAlarmManager) {
+      await AndroidAlarmManager.cancel(kAlarmId);
+    } else if (_timer != null) {
+      _timer!.cancel();
+    }
+    setState(() {
+      _doAlarmManager = doAlarmManager;
+      _list.clear();
+    });
+    await _oneShot();
   }
 
   @override
@@ -113,15 +133,41 @@ class _AlarmHomePageState extends State<_AlarmHomePage> {
     uiSendPort?.send(null);
   }
 
+  void setRadio(bool? select) {
+    _restart(select ?? true);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
       ),
-      body: ListView.builder(
-        itemCount: _list.length,
-        itemBuilder: (context, index) => Text(_list[index]),
+      body: Column(
+        children: [
+          Row(
+            children: [
+              Radio<bool>(
+                value: true,
+                groupValue: _doAlarmManager,
+                onChanged: setRadio,
+              ),
+              const Text("Alarm"),
+              Radio<bool>(
+                value: false,
+                groupValue: _doAlarmManager,
+                onChanged: setRadio,
+              ),
+              const Text("Timer"),
+            ],
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: _list.length,
+              itemBuilder: (context, index) => Text(_list[index]),
+            ),
+          ),
+        ],
       ),
     );
   }
