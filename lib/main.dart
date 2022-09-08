@@ -11,7 +11,9 @@ import 'dart:isolate';
 import 'dart:ui';
 
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:optimize_battery/optimize_battery.dart';
 
@@ -23,7 +25,9 @@ final ReceivePort port = ReceivePort();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  AndroidAlarmManager.initialize();
+  if (!kIsWeb && Platform.isAndroid) {
+    AndroidAlarmManager.initialize();
+  }
   if (Platform.isAndroid) {
     final isIgnored = await OptimizeBattery.isIgnoringBatteryOptimizations();
     if (!isIgnored) {
@@ -50,7 +54,7 @@ class AlarmManagerExampleApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return const MaterialApp(
       title: 'Flutter Demo',
-      home: _AlarmHomePage(title: 'Flutter Demo Home Page'),
+      home: _AlarmHomePage(title: 'Alarm Manager demo'),
     );
   }
 }
@@ -63,49 +67,104 @@ class _AlarmHomePage extends StatefulWidget {
   _AlarmHomePageState createState() => _AlarmHomePageState();
 }
 
-class _AlarmHomePageState extends State<_AlarmHomePage> {
-  final _list = <String>[];
-  final formatter = DateFormat('yyyy-MM-dd hh:mm:ss');
-  var _prev = DateTime.now();
-  bool _doAlarmManager = false;
+/// 呼び出すアラームの種別
+enum AlarmType {
+  /// Android Alarm Manager
+  alarm,
 
+  /// Timer
+  timer,
+}
+
+class _AlarmHomePageState extends State<_AlarmHomePage> {
+  /// リストに表示するタイムスタンプ情報
+  final _list = <String>[];
+
+  /// タイムスタンプの時刻フォーマット
+  static DateFormat formatter = DateFormat('yyyy-MM-dd hh:mm:ss');
+
+  /// 前回発動してからの経過時間を求めるための前回の時刻
+  var _prev = DateTime.now();
+
+  /// 発動しているアラームの種別
+  AlarmType _type = AlarmType.alarm;
+
+  /// Alarm Managerの識別番号
   static int kAlarmId = 0;
 
+  /// Timer設定時のオブジェクト
   Timer? _timer;
 
+  /// アラームを発動しているか
+  bool isStarted = false;
+
+  /// 発動間隔
+  Duration interval = const Duration(seconds: 20);
+
+  late TextEditingController _controller;
+
+  /// 次回のアラーム設定をする
   FutureOr<void> _oneShot() async {
-    if (_doAlarmManager) {
-      await AndroidAlarmManager.oneShot(
-        const Duration(seconds: 20),
-        kAlarmId,
-        callback,
-        exact: true,
-        wakeup: true,
-        allowWhileIdle: true,
-      );
-    } else {
-      _timer = Timer(const Duration(seconds: 20), _awake);
+    isStarted = true;
+    switch (_type) {
+      case AlarmType.alarm:
+        await AndroidAlarmManager.oneShot(
+          interval,
+          kAlarmId,
+          callback,
+          exact: true,
+          wakeup: true,
+          allowWhileIdle: true,
+        );
+        break;
+      case AlarmType.timer:
+        _timer = Timer(interval, _awake);
+        break;
     }
   }
 
-  FutureOr<void> _restart(bool doAlarmManager) async {
-    if (_doAlarmManager) {
-      await AndroidAlarmManager.cancel(kAlarmId);
-    } else if (_timer != null) {
-      _timer!.cancel();
+  /// 発動を止める
+  FutureOr<void> _stop() async {
+    if (isStarted) {
+      switch (_type) {
+        case AlarmType.alarm:
+          await AndroidAlarmManager.cancel(kAlarmId);
+          break;
+        case AlarmType.timer:
+          if (_timer != null) {
+            _timer!.cancel();
+          }
+          break;
+      }
+      isStarted = false;
+      setState(() {});
     }
+  }
+
+  /// アラームの再設定
+  FutureOr<void> _restart(AlarmType type) async {
+    await _stop();
     setState(() {
-      _doAlarmManager = doAlarmManager;
+      _type = type;
       _list.clear();
     });
+    _prev = DateTime.now();
     await _oneShot();
   }
 
   @override
   void initState() {
     super.initState();
+    _controller = TextEditingController();
+    _controller.text = "20";
     port.listen((_) async => await _awake());
-    _oneShot();
+    _type = (!kIsWeb && Platform.isAndroid) ? AlarmType.alarm : AlarmType.timer;
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   /// アラームからの呼び出し
@@ -120,10 +179,10 @@ class _AlarmHomePageState extends State<_AlarmHomePage> {
     _oneShot();
   }
 
-  // The background
+  /// callbackからUIへのポート
   static SendPort? uiSendPort;
 
-  /// アラームの機動関数。
+  /// アラームの起動関数。
   /// 起動された後、ポート経由でポートリッスン中の[_awake]が呼び出される。
   static Future<void> callback() async {
     developer.log('Alarm fired!');
@@ -133,8 +192,9 @@ class _AlarmHomePageState extends State<_AlarmHomePage> {
     uiSendPort?.send(null);
   }
 
-  void setRadio(bool? select) {
-    _restart(select ?? true);
+  /// ラジオボタンのコールバック
+  void setRadio(AlarmType? select) {
+    _restart(select ?? AlarmType.alarm);
   }
 
   @override
@@ -147,18 +207,45 @@ class _AlarmHomePageState extends State<_AlarmHomePage> {
         children: [
           Row(
             children: [
-              Radio<bool>(
-                value: true,
-                groupValue: _doAlarmManager,
-                onChanged: setRadio,
+              Radio<AlarmType>(
+                value: AlarmType.alarm,
+                groupValue: _type,
+                onChanged: (!kIsWeb && Platform.isAndroid) ? setRadio : null,
               ),
               const Text("Alarm"),
-              Radio<bool>(
-                value: false,
-                groupValue: _doAlarmManager,
+              Radio<AlarmType>(
+                value: AlarmType.timer,
+                groupValue: _type,
                 onChanged: setRadio,
               ),
               const Text("Timer"),
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onEditingComplete: () {
+                    final value = int.tryParse(_controller.text);
+                    if (value != null) {
+                      interval = Duration(seconds: value);
+                    }
+                    final FocusScopeNode currentScope = FocusScope.of(context);
+                    if (!currentScope.hasPrimaryFocus &&
+                        currentScope.hasFocus) {
+                      FocusManager.instance.primaryFocus?.unfocus();
+                    }
+                  },
+                ),
+              ),
+              TextButton(
+                  onPressed: () {
+                    if (isStarted) {
+                      _stop();
+                    } else {
+                      _restart(_type);
+                    }
+                  },
+                  child: Text(isStarted ? "Stop" : "Start")),
             ],
           ),
           Expanded(
