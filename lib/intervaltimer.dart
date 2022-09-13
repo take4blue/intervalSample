@@ -18,10 +18,10 @@ enum AlarmType {
 /// 間隔でタイマー処理[awake]を実行する
 class IntervalTimer {
   IntervalTimer(this.awake)
-      : _type = canUse(AlarmType.alarm) ? AlarmType.alarm : AlarmType.timer;
+      : type = canUse(AlarmType.alarm) ? AlarmType.alarm : AlarmType.timer;
 
   /// 発動しているアラームの種別
-  AlarmType _type;
+  AlarmType type;
 
   /// Alarm Managerの識別番号
   static int kAlarmId = 0;
@@ -45,13 +45,10 @@ class IntervalTimer {
   /// UI側で実行する関数
   void Function() awake;
 
-  /// アラームの種別取得
-  AlarmType get type => _type;
-
   /// 次回のアラーム設定をする
   FutureOr<void> oneShot() async {
     _isStarted = true;
-    switch (_type) {
+    switch (type) {
       case AlarmType.alarm:
         await AndroidAlarmManager.oneShot(
           _interval,
@@ -71,7 +68,7 @@ class IntervalTimer {
   /// 発動を止める
   FutureOr<void> stop() async {
     if (_isStarted) {
-      switch (_type) {
+      switch (type) {
         case AlarmType.alarm:
           await AndroidAlarmManager.cancel(kAlarmId);
           break;
@@ -90,7 +87,7 @@ class IntervalTimer {
   FutureOr<void> restart(AlarmType type) async {
     await stop();
     if (canUse(type)) {
-      _type = type;
+      type = type;
     }
     await oneShot();
   }

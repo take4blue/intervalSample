@@ -1,15 +1,10 @@
-// Copyright 2017 The Chromium Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
-
-// ignore_for_file: public_member_api_docs
-
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:optimize_battery/optimize_battery.dart';
 
@@ -24,21 +19,10 @@ Future<void> main() async {
       await OptimizeBattery.stopOptimizingBatteryUsage();
     }
   }
-  runApp(const AlarmManagerExampleApp());
-}
-
-/// Example app for Espresso plugin.
-class AlarmManagerExampleApp extends StatelessWidget {
-  const AlarmManagerExampleApp({Key? key}) : super(key: key);
-
-  // This widget is the root of your application.
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      title: 'Flutter Demo',
-      home: _AlarmHomePage(title: 'Alarm Manager demo'),
-    );
-  }
+  runApp(const GetMaterialApp(
+    title: 'Flutter Demo',
+    home: _AlarmHomePage(title: 'Alarm Manager demo'),
+  ));
 }
 
 class _AlarmHomePage extends StatefulWidget {
@@ -59,7 +43,7 @@ class _AlarmHomePageState extends State<_AlarmHomePage> {
   /// 前回発動してからの経過時間を求めるための前回の時刻
   var _prev = DateTime.now();
 
-  late IntervalTimer timer = IntervalTimer(awake);
+  late IntervalTimer timer;
 
   FutureOr<void> awake() async {
     developer.log('awake');
@@ -73,22 +57,12 @@ class _AlarmHomePageState extends State<_AlarmHomePage> {
 
   late TextEditingController _controller;
 
-  /// アラームの再設定
-  FutureOr<void> _restart(AlarmType type) async {
-    timer.restart(type);
-    setState(() {
-      _list.clear();
-      final now = DateTime.now();
-      _list.insert(0, formatter.format(now.toLocal()));
-      _prev = DateTime.now();
-    });
-  }
-
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController();
     _controller.text = "20";
+    timer = Get.put<IntervalTimer>(IntervalTimer(awake));
     timer.initState();
   }
 
@@ -100,7 +74,9 @@ class _AlarmHomePageState extends State<_AlarmHomePage> {
 
   /// ラジオボタンのコールバック
   void _setRadio(AlarmType? select) {
-    _restart(select ?? AlarmType.alarm);
+    setState(() {
+      timer.type = select!;
+    });
   }
 
   @override
@@ -148,10 +124,13 @@ class _AlarmHomePageState extends State<_AlarmHomePage> {
                   onPressed: () {
                     if (timer.isStarted) {
                       timer.stop();
-                      setState(() {});
                     } else {
-                      _restart(timer.type);
+                      timer.restart(timer.type);
+                      _list.clear();
+                      _prev = DateTime.now();
+                      _list.insert(0, formatter.format(_prev.toLocal()));
                     }
+                    setState(() {});
                   },
                   child: Text(timer.isStarted ? "Stop" : "Start")),
             ],
