@@ -5,6 +5,11 @@ import 'dart:ui';
 
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
+
+import 'alarminterval.dart';
+import 'timerinterval.dart';
+import 'workerinterval.dart';
 
 /// 呼び出すアラームの種別
 enum AlarmType {
@@ -13,21 +18,38 @@ enum AlarmType {
 
   /// Timer
   timer,
+
+  /// WorkManager
+  workmanager,
+}
+
+abstract class IInterval {
+  FutureOr<void> start();
+  FutureOr<void> stop();
 }
 
 /// 間隔でタイマー処理[awake]を実行する
-class IntervalTimer {
+class IntervalTimer extends GetxController {
   IntervalTimer(this.awake)
-      : type = canUse(AlarmType.alarm) ? AlarmType.alarm : AlarmType.timer;
+      : _type = canUse(AlarmType.alarm) ? AlarmType.alarm : AlarmType.timer;
 
   /// 発動しているアラームの種別
-  AlarmType type;
+  // ignore: prefer_final_fields
+  AlarmType _type;
 
-  /// Alarm Managerの識別番号
-  static int kAlarmId = 0;
+  AlarmType get type => _type;
 
-  /// Timer設定時のオブジェクト
-  Timer? _timer;
+  set type(AlarmType value) {
+    if (canUse(value)) {
+      _type = value;
+    }
+  }
+
+  late IInterval _interval;
+
+  late TimerInterval _timer;
+  late AlarmInterval _alarm;
+  late WorkerInterval _worker;
 
   /// アラームを発動しているか
   bool _isStarted = false;
@@ -35,88 +57,68 @@ class IntervalTimer {
   bool get isStarted => _isStarted;
 
   /// 発動間隔
-  Duration _interval = const Duration(seconds: 20);
+  Duration duration = const Duration(seconds: 20);
 
-  /// 発動間隔変更
-  set interval(int second) {
-    _interval = Duration(seconds: second);
+  /// 発動間隔変更。単位は秒。
+  set interval(int value) {
+    duration = Duration(seconds: value);
   }
 
   /// UI側で実行する関数
   void Function() awake;
 
-  /// 次回のアラーム設定をする
-  FutureOr<void> oneShot() async {
+  /// アラーム処理を開始する
+  FutureOr<void> start() async {
+    stop();
     _isStarted = true;
     switch (type) {
       case AlarmType.alarm:
-        await AndroidAlarmManager.oneShot(
-          _interval,
-          kAlarmId,
-          callback,
-          exact: true,
-          wakeup: true,
-          allowWhileIdle: true,
-        );
+        _interval = _alarm;
         break;
       case AlarmType.timer:
-        _timer = Timer(_interval, _awake);
+        _interval = _timer;
+        break;
+      case AlarmType.workmanager:
+        _interval = _worker;
         break;
     }
+    _interval.start();
   }
 
   /// 発動を止める
   FutureOr<void> stop() async {
     if (_isStarted) {
-      switch (type) {
-        case AlarmType.alarm:
-          await AndroidAlarmManager.cancel(kAlarmId);
-          break;
-        case AlarmType.timer:
-          if (_timer != null) {
-            _timer!.cancel();
-          }
-          break;
-      }
+      _interval.stop();
       _isStarted = false;
     }
   }
 
-  /// アラームの再設定。
-  /// [type]が設定不可の場合は、種別変更せずに再スタートする。
-  FutureOr<void> restart(AlarmType type) async {
-    await stop();
-    if (canUse(type)) {
-      type = type;
-    }
-    await oneShot();
-  }
-
   Future<void> _awake() async {
     awake();
-    oneShot();
+    start();
   }
 
   /// ポートの初期化
-  void initState() {
+  @override
+  void onInit() {
+    super.onInit();
     port.listen((_) async => await _awake());
+    _timer = TimerInterval(this);
+    _alarm = AlarmInterval(this);
+    _worker = WorkerInterval(this);
   }
 
-  /// callbackからUIへのポート
-  static SendPort? uiSendPort;
-
-  /// アラームの起動関数。
-  /// 起動された後、ポート経由でポートリッスン中の[_awake]が呼び出される。
-  static Future<void> callback() async {
-    uiSendPort ??= IsolateNameServer.lookupPortByName(isolateName);
-    uiSendPort?.send(null);
+  @override
+  void onClose() {
+    stop();
+    super.onClose();
   }
-
-  /// The name associated with the UI isolate's [SendPort].
-  static const String isolateName = 'isolate';
 
   /// A port used to communicate from a background isolate to the UI isolate.
   static final ReceivePort port = ReceivePort();
+
+  /// The name associated with the UI isolate's [SendPort].
+  static const String isolateName = 'isolate';
 
   /// パッケージの初期化関数
   static FutureOr<void> initialize() async {
@@ -134,9 +136,11 @@ class IntervalTimer {
   static bool canUse(AlarmType type) {
     switch (type) {
       case AlarmType.alarm:
-        return (!kIsWeb && Platform.isAndroid) ? true : false;
+        return AlarmInterval.canUse();
       case AlarmType.timer:
-        return true;
+        return TimerInterval.canUse();
+      case AlarmType.workmanager:
+        return WorkerInterval.canUse();
     }
   }
 }

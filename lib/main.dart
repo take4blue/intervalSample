@@ -63,7 +63,6 @@ class _AlarmHomePageState extends State<_AlarmHomePage> {
     _controller = TextEditingController();
     _controller.text = "20";
     timer = Get.put<IntervalTimer>(IntervalTimer(awake));
-    timer.initState();
   }
 
   @override
@@ -89,19 +88,29 @@ class _AlarmHomePageState extends State<_AlarmHomePage> {
         children: [
           Row(
             children: [
-              Radio<AlarmType>(
-                value: AlarmType.alarm,
-                groupValue: timer.type,
-                onChanged:
-                    IntervalTimer.canUse(AlarmType.alarm) ? _setRadio : null,
-              ),
-              const Text("Alarm"),
-              Radio<AlarmType>(
-                value: AlarmType.timer,
-                groupValue: timer.type,
+              DropdownButton<AlarmType>(
+                items: [
+                  DropdownMenuItem<AlarmType>(
+                    value: AlarmType.alarm,
+                    enabled: IntervalTimer.canUse(AlarmType.alarm),
+                    child: const Text("Alarm"),
+                  ),
+                  const DropdownMenuItem<AlarmType>(
+                    value: AlarmType.timer,
+                    child: Text("Timer"),
+                  ),
+                  DropdownMenuItem<AlarmType>(
+                    value: AlarmType.workmanager,
+                    enabled: IntervalTimer.canUse(AlarmType.workmanager),
+                    child: const Text("WorkManager"),
+                  )
+                ],
                 onChanged: _setRadio,
+                value: timer.type,
               ),
-              const Text("Timer"),
+              const SizedBox(
+                width: 10,
+              ),
               Expanded(
                 child: TextField(
                   controller: _controller,
@@ -125,7 +134,7 @@ class _AlarmHomePageState extends State<_AlarmHomePage> {
                     if (timer.isStarted) {
                       timer.stop();
                     } else {
-                      timer.restart(timer.type);
+                      timer.start();
                       _list.clear();
                       _prev = DateTime.now();
                       _list.insert(0, formatter.format(_prev.toLocal()));
