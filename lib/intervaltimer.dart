@@ -5,13 +5,15 @@ import 'dart:ui';
 
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'alarminterval.dart';
+import 'awakeaction.dart';
 import 'timerinterval.dart';
 import 'workerinterval.dart';
 
-/// 呼び出すアラームの種別
+/// 呼び出す定期処理の種別
 enum AlarmType {
   /// Android Alarm Manager
   alarm,
@@ -23,6 +25,7 @@ enum AlarmType {
   workmanager,
 }
 
+/// 定時処理のインターフェース
 abstract class IInterval {
   FutureOr<void> start();
   FutureOr<void> stop();
@@ -30,10 +33,10 @@ abstract class IInterval {
 
 /// 間隔でタイマー処理[awake]を実行する
 class IntervalTimer extends GetxController {
-  IntervalTimer(this.awake)
+  IntervalTimer()
       : _type = canUse(AlarmType.alarm) ? AlarmType.alarm : AlarmType.timer;
 
-  /// 発動しているアラームの種別
+  /// 定時処理の種類
   // ignore: prefer_final_fields
   AlarmType _type;
 
@@ -43,33 +46,49 @@ class IntervalTimer extends GetxController {
     if (canUse(value)) {
       _type = value;
     }
+    update(["type"]);
   }
 
+  late TextEditingController text;
+
+  /// 実際に処理を行う定時処理本体。
   late IInterval _interval;
 
+  // 以下は機能ごとの定時処理オブジェクト。
   late TimerInterval _timer;
   late AlarmInterval _alarm;
   late WorkerInterval _worker;
 
-  /// アラームを発動しているか
+  final action = AwakeAction();
+
+  List<String> get list => action.list;
+
+  /// 定時処理を実行中かどうか
   bool _isStarted = false;
 
   bool get isStarted => _isStarted;
 
-  /// 発動間隔
+  /// 処理間隔
   Duration duration = const Duration(seconds: 20);
 
-  /// 発動間隔変更。単位は秒。
+  /// 処理間隔変更。単位は秒。
   set interval(int value) {
     duration = Duration(seconds: value);
   }
 
-  /// UI側で実行する関数
-  void Function() awake;
+  FutureOr<void> startStop() async {
+    if (isStarted) {
+      _stop();
+    } else {
+      action.clear();
+      _start();
+    }
+    update();
+  }
 
-  /// アラーム処理を開始する
-  FutureOr<void> start() async {
-    stop();
+  /// 定時処理を開始する
+  FutureOr<void> _start() async {
+    _stop();
     _isStarted = true;
     switch (type) {
       case AlarmType.alarm:
@@ -85,24 +104,29 @@ class IntervalTimer extends GetxController {
     _interval.start();
   }
 
-  /// 発動を止める
-  FutureOr<void> stop() async {
+  /// 定時処理を止める
+  FutureOr<void> _stop() async {
     if (_isStarted) {
       _interval.stop();
       _isStarted = false;
     }
   }
 
-  Future<void> _awake() async {
-    awake();
-    start();
+  Future<void> awake() async {
+    action.awake();
+    _start(); // 再スタートする
+    update();
   }
 
   /// ポートの初期化
   @override
   void onInit() {
     super.onInit();
-    port.listen((_) async => await _awake());
+    text = TextEditingController();
+    text.text = "20";
+    // Isolate側からの通信でawakeを呼び出すようにする
+    port.listen((_) async => await awake());
+    // 種類ごとの定期処理オブジェクト
     _timer = TimerInterval(this);
     _alarm = AlarmInterval(this);
     _worker = WorkerInterval(this);
@@ -110,7 +134,8 @@ class IntervalTimer extends GetxController {
 
   @override
   void onClose() {
-    stop();
+    _stop(); // 後処理として定期処理を止めておく
+    text.dispose();
     super.onClose();
   }
 
