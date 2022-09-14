@@ -76,6 +76,14 @@ class IntervalTimer extends GetxController {
     duration = Duration(seconds: value);
   }
 
+  void setPeriodic(bool? value) {
+    periodic = value ?? true;
+    update(["type"]);
+  }
+
+  /// periodicな関数呼び出しで定期処理を実施するかどうか
+  bool periodic = false;
+
   FutureOr<void> startStop() async {
     if (isStarted) {
       _stop();
@@ -114,7 +122,9 @@ class IntervalTimer extends GetxController {
 
   Future<void> awake() async {
     action.awake();
-    _start(); // 再スタートする
+    if (!periodic) {
+      _start(); // 再スタートする
+    }
     update();
   }
 

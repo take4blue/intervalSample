@@ -28,14 +28,25 @@ class AlarmInterval extends IInterval {
 
   @override
   FutureOr<void> start() async {
-    await AndroidAlarmManager.oneShot(
-      timer.duration,
-      kAlarmId,
-      alarmCallback,
-      exact: true,
-      wakeup: true,
-      allowWhileIdle: true,
-    );
+    if (timer.periodic) {
+      await AndroidAlarmManager.periodic(
+        timer.duration,
+        kAlarmId,
+        alarmCallback,
+        exact: true,
+        wakeup: true,
+        allowWhileIdle: true,
+      );
+    } else {
+      await AndroidAlarmManager.oneShot(
+        timer.duration,
+        kAlarmId,
+        alarmCallback,
+        exact: true,
+        wakeup: true,
+        allowWhileIdle: true,
+      );
+    }
   }
 
   @override

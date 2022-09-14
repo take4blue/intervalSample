@@ -12,7 +12,11 @@ class TimerInterval extends IInterval {
 
   @override
   FutureOr<void> start() {
-    _id = Timer(timer.duration, timer.awake);
+    if (timer.periodic) {
+      _id = Timer.periodic(timer.duration, (_) => timer.awake());
+    } else {
+      _id = Timer(timer.duration, timer.awake);
+    }
   }
 
   @override

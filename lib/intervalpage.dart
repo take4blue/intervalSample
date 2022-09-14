@@ -53,9 +53,15 @@ class IntervalPage extends StatelessWidget {
                     ],
                   ),
                   Expanded(
-                    child: ListView.builder(
-                      itemCount: timer.list.length,
-                      itemBuilder: (context, index) => Text(timer.list[index]),
+                    child: Container(
+                      decoration: BoxDecoration(
+                          border: Border.all(),
+                          borderRadius: BorderRadius.circular(5)),
+                      child: ListView.builder(
+                        itemCount: timer.list.length,
+                        itemBuilder: (context, index) =>
+                            Text(timer.list[index]),
+                      ),
                     ),
                   ),
                 ],
@@ -72,26 +78,30 @@ class TypeDrop extends StatelessWidget {
   Widget build(BuildContext context) {
     return GetBuilder<IntervalTimer>(
       id: "type",
-      builder: (timer) => DropdownButton<AlarmType>(
-        items: [
-          DropdownMenuItem<AlarmType>(
-            value: AlarmType.alarm,
-            enabled: IntervalTimer.canUse(AlarmType.alarm),
-            child: const Text("Alarm"),
-          ),
-          const DropdownMenuItem<AlarmType>(
-            value: AlarmType.timer,
-            child: Text("Timer"),
-          ),
-          DropdownMenuItem<AlarmType>(
-            value: AlarmType.workmanager,
-            enabled: IntervalTimer.canUse(AlarmType.workmanager),
-            child: const Text("WorkManager"),
-          )
-        ],
-        onChanged: (value) => timer.type = value!,
-        value: timer.type,
-      ),
+      builder: (timer) => Row(children: [
+        DropdownButton<AlarmType>(
+          items: [
+            DropdownMenuItem<AlarmType>(
+              value: AlarmType.alarm,
+              enabled: IntervalTimer.canUse(AlarmType.alarm),
+              child: const Text("Alarm"),
+            ),
+            const DropdownMenuItem<AlarmType>(
+              value: AlarmType.timer,
+              child: Text("Timer"),
+            ),
+            DropdownMenuItem<AlarmType>(
+              value: AlarmType.workmanager,
+              enabled: IntervalTimer.canUse(AlarmType.workmanager),
+              child: const Text("WorkManager"),
+            )
+          ],
+          onChanged: (value) => timer.type = value!,
+          value: timer.type,
+        ),
+        Checkbox(value: timer.periodic, onChanged: timer.setPeriodic),
+        const Text("periodic"),
+      ]),
     );
   }
 }

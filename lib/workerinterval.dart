@@ -43,11 +43,20 @@ class WorkerInterval extends IInterval {
 
   @override
   FutureOr<void> start() async {
-    await Workmanager().registerOneOffTask(
-      workName,
-      workName,
-      initialDelay: timer.duration,
-    );
+    if (timer.periodic) {
+      await Workmanager().registerPeriodicTask(
+        workName,
+        workName,
+        initialDelay: timer.duration,
+        frequency: timer.duration,
+      );
+    } else {
+      await Workmanager().registerOneOffTask(
+        workName,
+        workName,
+        initialDelay: timer.duration,
+      );
+    }
   }
 
   @override
