@@ -21,9 +21,7 @@ class IntervalPage extends StatelessWidget {
                   Row(
                     children: [
                       const TypeDrop(), // 定時処理機能の選択
-                      const SizedBox(
-                        width: 10,
-                      ),
+                      const VerticalDivider(),
                       Expanded(
                         // 数値のみを入力可能なテキスト。
                         // キーボードで確定したらフォーカスを外す。
@@ -47,11 +45,15 @@ class IntervalPage extends StatelessWidget {
                           },
                         ),
                       ),
+                      const VerticalDivider(),
                       TextButton(
                           onPressed: timer.startStop,
                           child: Text(timer.isStarted ? "Stop" : "Start")),
                     ],
                   ),
+                  if (ParameterBase.hasParameter(timer.type))
+                    const ParameterBase(),
+                  const Divider(),
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
@@ -94,7 +96,12 @@ class TypeDrop extends StatelessWidget {
               value: AlarmType.workmanager,
               enabled: IntervalTimer.canUse(AlarmType.workmanager),
               child: const Text("WorkManager"),
-            )
+            ),
+            DropdownMenuItem<AlarmType>(
+              value: AlarmType.background,
+              enabled: IntervalTimer.canUse(AlarmType.background),
+              child: const Text("Background"),
+            ),
           ],
           onChanged: (value) => timer.type = value!,
           value: timer.type,
@@ -103,5 +110,96 @@ class TypeDrop extends StatelessWidget {
         const Text("periodic"),
       ]),
     );
+  }
+}
+
+class ParameterBase extends StatelessWidget {
+  const ParameterBase({super.key});
+
+  Widget parameter(IntervalTimer timer) {
+    switch (timer.type) {
+      case AlarmType.alarm:
+        return Container(
+          key: ValueKey<AlarmType>(timer.type),
+          width: 200.0,
+          height: 23.0,
+          color: Colors.green,
+        );
+      case AlarmType.timer:
+        return Container(
+          key: ValueKey<AlarmType>(timer.type),
+          width: 200.0,
+          height: 23.0,
+          color: Colors.red,
+        );
+      case AlarmType.workmanager:
+        return Container(
+          key: ValueKey<AlarmType>(timer.type),
+          width: 200.0,
+          height: 23.0,
+          color: Colors.lightBlue,
+        );
+      case AlarmType.background:
+        return BackgroundParameters(
+          key: ValueKey<AlarmType>(timer.type),
+        );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GetBuilder<IntervalTimer>(
+      id: "parameter",
+      builder: (timer) {
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 500),
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            return ScaleTransition(scale: animation, child: child);
+          },
+          child: parameter(timer),
+        );
+      },
+    );
+  }
+
+  static bool hasParameter(AlarmType type) {
+    switch (type) {
+      case AlarmType.alarm:
+        return false;
+      case AlarmType.timer:
+        return false;
+      case AlarmType.workmanager:
+        return false;
+      case AlarmType.background:
+        return true;
+    }
+  }
+}
+
+class BackgroundParameters extends StatelessWidget {
+  const BackgroundParameters({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return GetBuilder<IntervalTimer>(
+        id: "bpara",
+        builder: (timer) {
+          return Row(
+            children: [
+              const Text("Background service"),
+              const VerticalDivider(),
+              TextButton(
+                  onPressed: () {
+                    if (timer.background.isRunning) {
+                      timer.background.stop();
+                      timer.background.kill();
+                    } else {
+                      timer.background.execute();
+                    }
+                  },
+                  child: Text(timer.background.isRunning ? "Stop" : "Start")),
+            ],
+          );
+        });
   }
 }

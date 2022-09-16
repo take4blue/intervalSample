@@ -12,6 +12,7 @@ import 'alarminterval.dart';
 import 'awakeaction.dart';
 import 'timerinterval.dart';
 import 'workerinterval.dart';
+import 'backgroundinterval.dart';
 
 /// 呼び出す定期処理の種別
 enum AlarmType {
@@ -23,6 +24,9 @@ enum AlarmType {
 
   /// WorkManager
   workmanager,
+
+  /// Background service
+  background,
 }
 
 /// 定時処理のインターフェース
@@ -46,7 +50,8 @@ class IntervalTimer extends GetxController {
     if (canUse(value)) {
       _type = value;
     }
-    update(["type"]);
+    update(["type", "parameter"]);
+    update();
   }
 
   late TextEditingController text;
@@ -58,6 +63,7 @@ class IntervalTimer extends GetxController {
   late TimerInterval _timer;
   late AlarmInterval _alarm;
   late WorkerInterval _worker;
+  late BackgroundInterval background;
 
   final action = AwakeAction();
 
@@ -108,6 +114,9 @@ class IntervalTimer extends GetxController {
       case AlarmType.workmanager:
         _interval = _worker;
         break;
+      case AlarmType.background:
+        _interval = background;
+        break;
     }
     _interval.start();
   }
@@ -123,7 +132,7 @@ class IntervalTimer extends GetxController {
   Future<void> awake() async {
     action.awake();
     if (!periodic) {
-      _start(); // 再スタートする
+      _interval.start(); // 再スタートする
     }
     update();
   }
@@ -140,6 +149,8 @@ class IntervalTimer extends GetxController {
     _timer = TimerInterval(this);
     _alarm = AlarmInterval(this);
     _worker = WorkerInterval(this);
+    background = BackgroundInterval(this);
+    background.initialize();
   }
 
   @override
@@ -176,6 +187,8 @@ class IntervalTimer extends GetxController {
         return TimerInterval.canUse();
       case AlarmType.workmanager:
         return WorkerInterval.canUse();
+      case AlarmType.background:
+        return BackgroundInterval.canUse();
     }
   }
 }

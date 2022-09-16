@@ -41,6 +41,7 @@ dependencies:
   optimize_battery: ^0.0.4
   get: ^4.6.5
   workmanager: ^0.5.0
+  flutter_background_service: ^2.3.4
 
 dev_dependencies:
   flutter_test:
