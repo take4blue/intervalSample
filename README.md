@@ -1,3 +1,9 @@
+## 1.0.3
+periodic機能を追加
+
+Workmanagerとbackground_serviceを追加。</br>
+background_serviceに関してはそのサービス起動のためのパラメータ画面を用意。
+
 ## 1.0.2
 Alarm ManagerとTimerで定時処理を切り替えて定時処理を行えるようにする。</br>
 また開始・終了の指示をボタンで可能とし、期間(単位は秒)をテキストで設定可能としている。
